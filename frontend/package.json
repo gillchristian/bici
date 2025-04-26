@@ -6,17 +6,29 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "fmt": "prettier --write ."
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.2",
+    "@heroicons/react": "^2.2.0",
+    "date-fns": "^4.1.0",
+    "fp-ts": "^2.16.10",
+    "jotai": "^2.12.3",
+    "parser-ts": "^0.7.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@tailwindcss/forms": "^0.5.10",
+    "@tailwindcss/typography": "^0.5.16",
+    "@tailwindcss/vite": "^4.1.4",
     "@types/react": "^18.0.17",
     "@types/react-dom": "^18.0.6",
-    "@vitejs/plugin-react": "^2.0.1",
+    "@vitejs/plugin-react": "^4.4.1",
+    "prettier": "^3.5.3",
+    "tailwindcss": "^4.1.4",
     "typescript": "^4.6.4",
-    "vite": "^3.0.7"
+    "vite": "^6.3.3"
   }
 }

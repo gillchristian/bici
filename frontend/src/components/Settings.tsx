@@ -1,0 +1,156 @@
+import {useCallback, useEffect, useMemo, useState} from 'react'
+import {HomeIcon} from '@heroicons/react/24/outline'
+import {useAtom} from 'jotai'
+import * as E from 'fp-ts/Either'
+import {pipe} from 'fp-ts/function'
+
+import type {WeekDict} from '@/utils/calendar'
+import {WeekDay, WeekDayNum, ScheduleAtom, EventsAtom} from '@/utils/calendar'
+import {clsxm} from '@/utils/clsxm'
+import {parseSchedule} from '@/utils/calendar'
+import {getDay, previousDay} from 'date-fns'
+import {ViewAtom} from '@/utils/router'
+
+const WEEK = [
+  WeekDay.Sunday,
+  WeekDay.Monday,
+  WeekDay.Tuesday,
+  WeekDay.Wednesday,
+  WeekDay.Thursday,
+  WeekDay.Friday,
+  WeekDay.Saturday
+]
+
+const getWeekDay = (now: Date, day: WeekDayNum) => (getDay(now) === 0 ? now : previousDay(now, day))
+
+export const Settings = () => {
+  const [schedules, setSchedules] = useAtom(ScheduleAtom)
+  const [_, setEvents] = useAtom(EventsAtom)
+  const [__, setView] = useAtom(ViewAtom)
+
+  const now = useMemo(() => new Date(), [])
+  const week: WeekDict<Date> = useMemo(
+    () => ({
+      [WeekDay.Sunday]: getWeekDay(now, WeekDayNum.Sunday),
+      [WeekDay.Monday]: getWeekDay(now, WeekDayNum.Monday),
+      [WeekDay.Tuesday]: getWeekDay(now, WeekDayNum.Tuesday),
+      [WeekDay.Wednesday]: getWeekDay(now, WeekDayNum.Wednesday),
+      [WeekDay.Thursday]: getWeekDay(now, WeekDayNum.Thursday),
+      [WeekDay.Friday]: getWeekDay(now, WeekDayNum.Friday),
+      [WeekDay.Saturday]: getWeekDay(now, WeekDayNum.Saturday)
+    }),
+    []
+  )
+
+  const [errors, setErrors] = useState<WeekDict<string>>({
+    [WeekDay.Sunday]: '',
+    [WeekDay.Monday]: '',
+    [WeekDay.Tuesday]: '',
+    [WeekDay.Wednesday]: '',
+    [WeekDay.Thursday]: '',
+    [WeekDay.Friday]: '',
+    [WeekDay.Saturday]: ''
+  })
+
+  const doParse = useCallback(
+    (day: WeekDay, schedule: string) =>
+      pipe(
+        schedule,
+        parseSchedule(week[day]),
+        E.match(
+          (e) => {
+            console.error(e)
+            setErrors((prev) => ({...prev, [day]: e}))
+          },
+          (es) => {
+            setEvents((prev) => ({...prev, [day]: es}))
+            setErrors((prev) => ({...prev, [day]: ''}))
+          }
+        )
+      ),
+    []
+  )
+
+  // TODO: DRY !!!
+  useEffect(() => {
+    doParse(WeekDay.Sunday, schedules.Sunday)
+  }, [schedules.Sunday])
+
+  useEffect(() => {
+    doParse(WeekDay.Monday, schedules.Monday)
+  }, [schedules.Monday])
+
+  useEffect(() => {
+    doParse(WeekDay.Tuesday, schedules.Tuesday)
+  }, [schedules.Tuesday])
+
+  useEffect(() => {
+    doParse(WeekDay.Wednesday, schedules.Wednesday)
+  }, [schedules.Wednesday])
+
+  useEffect(() => {
+    doParse(WeekDay.Thursday, schedules.Thursday)
+  }, [schedules.Thursday])
+
+  useEffect(() => {
+    doParse(WeekDay.Friday, schedules.Friday)
+  }, [schedules.Friday])
+
+  useEffect(() => {
+    doParse(WeekDay.Saturday, schedules.Saturday)
+  }, [schedules.Saturday])
+
+  return (
+    <>
+      <div className="fixed top-3 right-3">
+        <button
+          type="button"
+          className={clsxm(
+            'text-sm font-semibold text-gray-600 shadow-sm cursor-pointer',
+            'hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
+          )}
+          onClick={() => setView('home')}
+        >
+          <span className="sr-only">Go to settings</span>
+
+          <HomeIcon className="h-6 w-6" aria-hidden="true" />
+        </button>
+      </div>
+      <div className="flex flex-col items-center">
+        <div className="space-y-12 p-12 w-full max-w-2xl">
+          <h1 className="text-xl">Schedule</h1>
+
+          {WEEK.map((day) => (
+            <div>
+              <label htmlFor={day} className="block text-sm font-medium leading-6 text-gray-900">
+                {day}
+              </label>
+              <div className="mt-2">
+                <textarea
+                  id={day}
+                  name={day}
+                  rows={15}
+                  className={clsxm(
+                    'block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm',
+                    'ring-1 ring-inset ring-gray-300 placeholder:text-gray-400',
+                    'focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6'
+                  )}
+                  value={schedules[day]}
+                  onChange={(e) => setSchedules((prev) => ({...prev, [day]: e.target.value}))}
+                />
+              </div>
+              {errors[day] && (
+                <div className="mt-2 space-y-2">
+                  <p className="text-sm text-red-600 font-bold">Failed to parse schedule</p>
+                  <pre className="text-sm text-red-600 overflow-x-auto mt-1 bg-red-50 p-2 rounded-md">
+                    {errors[day]}
+                  </pre>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}
