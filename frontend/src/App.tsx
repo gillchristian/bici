@@ -14,6 +14,8 @@ function App() {
   if (view === 'home') {
     return <Calendar />
   }
+
+  return null
 }
 
 export default App

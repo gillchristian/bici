@@ -1,7 +1,7 @@
 import {format} from 'date-fns'
 
-import type {CalendarEvent} from '@/utils/calendar'
-import {WeekDayNum} from '@/utils/calendar'
+import type {CalendarEvent} from '@/utils/calendar-event'
+import {WeekDayNum} from '@/utils/week-day'
 import {clsxm} from '@/utils/clsxm'
 
 // TODO:

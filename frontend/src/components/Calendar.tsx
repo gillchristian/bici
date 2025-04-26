@@ -1,11 +1,14 @@
-import {useEffect, useMemo, useRef} from 'react'
-import {CogIcon} from '@heroicons/react/24/outline'
+import {useEffect, useMemo, useRef, useCallback} from 'react'
+import {CogIcon, ArrowDownTrayIcon} from '@heroicons/react/24/outline'
 import {format} from 'date-fns'
 import {useAtom, useAtomValue} from 'jotai'
+
+import {ExportEvents} from '@wails/go/main/App'
 
 import {clsxm} from '@/utils/clsxm'
 import {mkWeek, EventsAtom, ScheduleAtom, getWeekDay} from '@/utils/calendar'
 import {ViewAtom} from '@/utils/router'
+import * as CE from '@/utils/calendar-event'
 
 import {Week} from './Week'
 
@@ -39,6 +42,22 @@ export function Calendar({}: Props) {
     container.current.scrollTop = (containerHeight * currentMinute) / 1440
   }, [])
 
+  const exportEvents = useCallback(() => {
+    const events_ = Object.values(events)
+      .flat()
+      .map((event) => CE.toGo(event))
+
+    ExportEvents(events_).then((result) => {
+      console.log({result})
+      if (result === true) {
+        console.log('Events exported successfully')
+      } else {
+        console.error('Failed to export events')
+        console.error(result)
+      }
+    })
+  }, [events])
+
   return (
     <div className="flex h-full flex-col">
       <header className="flex flex-none items-center justify-between border-b border-gray-200 px-6 py-4">
@@ -61,6 +80,17 @@ export function Calendar({}: Props) {
                 'ml-6 px-3 py-2 text-sm font-semibold text-gray-600 shadow-sm cursor-pointer',
                 'hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
               )}
+              onClick={exportEvents}
+            >
+              <span className="sr-only">Export events</span>
+              <ArrowDownTrayIcon className="h-6 w-6" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={clsxm(
+                'ml-6 px-3 py-2 text-sm font-semibold text-gray-600 shadow-sm cursor-pointer',
+                'hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600'
+              )}
               onClick={() => setView('settings')}
             >
               <span className="sr-only">Go to settings</span>
@@ -75,6 +105,13 @@ export function Calendar({}: Props) {
             >
               <span className="sr-only">Open menu</span>
               <CogIcon className="h-5 w-5" aria-hidden="true" />
+            </button>
+            <button
+              className="-mx-2 flex items-center rounded-full border border-transparent p-2 text-gray-400 hover:text-gray-500"
+              onClick={exportEvents}
+            >
+              <span className="sr-only">Export events</span>
+              <ArrowDownTrayIcon className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
         </div>

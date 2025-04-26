@@ -20,6 +20,9 @@ import * as C from 'parser-ts/char'
 import * as S from 'parser-ts/string'
 import * as P from 'parser-ts/Parser'
 
+import {CalendarEvent, Color} from './calendar-event'
+import {WeekDay} from './week-day'
+
 export type Day = {
   date: string
   isCurrentMonth: boolean
@@ -67,8 +70,6 @@ export const mkWeek = (now: Date): Day[] => {
   return days
 }
 
-// TODO: more colors ?
-// TODO: enum
 const COLORS = {
   blue: null,
   pink: null,
@@ -81,8 +82,6 @@ const COLORS = {
   purple: null,
   gray: null
 }
-
-export type Color = keyof typeof COLORS
 
 const isColor = (color: string): color is Color => color in COLORS
 
@@ -105,22 +104,16 @@ const color: P.Parser<string, Color> = pipe(
   P.filter(isColor)
 )
 
-// 10 -> 10
-//  6 ->  6
-// 05 ->  5
-// 00 ->  0
 const timeNumber = pipe(
   C.many1(C.digit),
   P.map((ds) => parseInt(ds, 10))
 )
 
-// 10:00 -> [10, 0]
 const time = pipe(
   sequenceP(timeNumber, colon, timeNumber),
   P.map(([h, _c, m]) => [h, m] as const)
 )
 
-// 10:00 - 10:30 -> ([10, 0], [10, 30])
 const range = pipe(
   sequenceP(time, S.spaces, dash, S.spaces, time),
   P.map(([fh, _s1, _d, _s2, th]) => [fh, th] as const)
@@ -138,23 +131,6 @@ const maybeColor = pipe(
   P.map(O.getOrElse(() => 'blue' as Color))
 )
 
-// TODO:
-//
-// - Add tests !!!
-// - Invalid color breaks the parser (e.g. `#red`), should use `lookAhead` or maybe a fallback?
-// - Check that end time is after start time
-// - Title & description should support more characters (eg. qutoes, commas, dots, etc.). Maybe anything that's not a newline or hash?
-
-/**
- * Parses an event, with the following format:
- *
- * ```
- * 10:00 - 10:30 Some title
- * 10:00 - 10:30 Some title / Some description
- * 10:00 - 10:30 Some title #pink
- * 10:00 - 10:30 Some title / Some description #pink
- * ```
- */
 const event = (today: Date) =>
   pipe(
     sequenceP(range, spaces1, words, maybeDescription, maybeColor),
@@ -195,43 +171,8 @@ export type EventTime = {
   end: string
 }
 
-export enum WeekDay {
-  Sunday = 'Sunday',
-  Monday = 'Monday',
-  Tuesday = 'Tuesday',
-  Wednesday = 'Wednesday',
-  Thursday = 'Thursday',
-  Friday = 'Friday',
-  Saturday = 'Saturday'
-}
-
-export enum WeekDayNum {
-  Sunday = 0,
-  Monday = 1,
-  Tuesday = 2,
-  Wednesday = 3,
-  Thursday = 4,
-  Friday = 5,
-  Saturday = 6
-}
-
 export const getWeekDay = (date: Date): WeekDay =>
   WeekDay[format(date, 'EEEE') as keyof typeof WeekDay]
-
-// TODO:
-//
-// - Location?
-// - Notes?
-// - Tags
-//     - Make the color another tag with special behavior
-//     - Map tags to colors? Eg. `#work` -> `blue`
-export type CalendarEvent = {
-  title: string
-  description?: string
-  time: EventTime
-  color: Color
-  weekday: WeekDay
-}
 
 export type WeekDict<T> = {
   [key in WeekDay]: T

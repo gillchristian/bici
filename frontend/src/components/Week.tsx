@@ -1,7 +1,8 @@
 import {RefObject} from 'react'
 import {format} from 'date-fns'
 
-import type {Day, CalendarEvent as Event, WeekDict} from '@/utils/calendar'
+import type {Day, WeekDict} from '@/utils/calendar'
+import type {CalendarEvent as Event} from '@/utils/calendar-event'
 import {clsxm} from '@/utils/clsxm'
 
 import {CalendarEvent} from './CalendarEvent'

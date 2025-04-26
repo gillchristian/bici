@@ -5,7 +5,8 @@ import * as E from 'fp-ts/Either'
 import {pipe} from 'fp-ts/function'
 
 import type {WeekDict} from '@/utils/calendar'
-import {WeekDay, WeekDayNum, ScheduleAtom, EventsAtom} from '@/utils/calendar'
+import {ScheduleAtom, EventsAtom} from '@/utils/calendar'
+import {WeekDay, WeekDayNum} from '@/utils/week-day'
 import {clsxm} from '@/utils/clsxm'
 import {parseSchedule} from '@/utils/calendar'
 import {getDay, previousDay} from 'date-fns'
@@ -63,6 +64,7 @@ export const Settings = () => {
             setErrors((prev) => ({...prev, [day]: e}))
           },
           (es) => {
+            console.log({day, es})
             setEvents((prev) => ({...prev, [day]: es}))
             setErrors((prev) => ({...prev, [day]: ''}))
           }
@@ -111,7 +113,7 @@ export const Settings = () => {
           )}
           onClick={() => setView('home')}
         >
-          <span className="sr-only">Go to settings</span>
+          <span className="sr-only">Go to home</span>
 
           <HomeIcon className="h-6 w-6" aria-hidden="true" />
         </button>
