@@ -15,6 +15,7 @@ export namespace main {
 	    }
 	}
 	export class CalendarEvent {
+	    id: string;
 	    title: string;
 	    description: string;
 	    time: EventTime;
@@ -26,6 +27,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
 	        this.title = source["title"];
 	        this.description = source["description"];
 	        this.time = this.convertValues(source["time"], EventTime);

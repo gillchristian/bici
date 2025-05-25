@@ -10,6 +10,7 @@ import (
 
 	ics "github.com/arran4/golang-ical"
 	"github.com/google/uuid"
+	rrule "github.com/teambition/rrule-go"
 )
 
 type App struct {
@@ -42,10 +43,112 @@ const (
 )
 
 type CalendarEvent struct {
+	Id          string    `json:"id"`
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
 	Time        EventTime `json:"time"`
 	Weekday     Weekday   `json:"weekday"`
+}
+
+func (a *App) ImportEvents(path string) []CalendarEvent {
+	fmt.Printf("Importing events from %s\n", path)
+
+	// Read the file
+	file, err := os.Open(path)
+	if err != nil {
+		fmt.Printf("Error opening file: %v\n", err)
+		return nil
+	}
+	defer file.Close()
+
+	fmt.Printf("File opened\n")
+
+	// Parse the calendar
+	cal, err := ics.ParseCalendar(file)
+	if err != nil {
+		fmt.Printf("Error parsing calendar: %v\n", err)
+		return nil
+	}
+
+	fmt.Printf("Calendar parsed\n")
+
+	// Get current time and calculate the start of the current week (Sunday)
+	now := time.Now()
+	// Calculate days since last Sunday (0 if today is Sunday)
+	daysSinceSunday := int(now.Weekday())
+	weekStart := now.AddDate(0, 0, -daysSinceSunday)
+	// Set time to start of day
+	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
+	weekEnd := weekStart.AddDate(0, 0, 7)
+
+	fmt.Printf("Week start: %v\n", weekStart)
+	fmt.Printf("Week end: %v\n", weekEnd)
+
+	var events []CalendarEvent
+
+	// Process each event
+	for _, event := range cal.Events() {
+		// Get event start time
+		startTime, err := event.GetStartAt()
+		if err != nil {
+			fmt.Printf("Error getting event start time: %v\n", err)
+			continue
+		}
+
+		// Skip events not in current week
+		if startTime.Before(weekStart) || startTime.After(weekEnd) {
+			continue
+		}
+
+		// Get event end time
+		endTime, err := event.GetEndAt()
+		if err != nil {
+			fmt.Printf("Error getting event end time: %v\n", err)
+			continue
+		}
+
+		fmt.Printf("Event start time: %v\n", startTime)
+		fmt.Printf("Event end time: %v\n", endTime)
+
+		// Get event title and description
+		title := ""
+		if prop := event.GetProperty(ics.ComponentPropertySummary); prop != nil {
+			title = prop.Value
+		}
+
+		description := ""
+		if prop := event.GetProperty(ics.ComponentPropertyDescription); prop != nil {
+			description = prop.Value
+		}
+
+		fmt.Printf("Event title: %s\n", title)
+		fmt.Printf("Event description: %s\n", description)
+
+		// Calculate weekday (0 = Sunday, 6 = Saturday)
+		weekday := Weekday(startTime.Weekday())
+
+		fmt.Printf("Event weekday: %d\n", weekday)
+
+		// Create CalendarEvent
+		calendarEvent := CalendarEvent{
+			Id:          event.Id(),
+			Title:       title,
+			Description: description,
+			Time: EventTime{
+				Start: startTime.Format(time.RFC3339),
+				End:   endTime.Format(time.RFC3339),
+			},
+			Weekday: weekday,
+		}
+
+		fmt.Printf("CalendarEvent: %+v\n", calendarEvent)
+
+		events = append(events, calendarEvent)
+	}
+
+	fmt.Printf("Imported %d events\n", len(events))
+
+	return events
 }
 
 func (a *App) ExportEvents(events []CalendarEvent) (bool, string) {
@@ -72,7 +175,9 @@ func (a *App) ExportEvents(events []CalendarEvent) (bool, string) {
 
 	// Get current time and calculate the start of the current week (Sunday)
 	now := time.Now()
-	weekStart := now.AddDate(0, 0, -int(now.Weekday()))
+	daysSinceSunday := int(now.Weekday())
+	weekStart := now.AddDate(0, 0, -daysSinceSunday)
+	weekStart = time.Date(weekStart.Year(), weekStart.Month(), weekStart.Day(), 0, 0, 0, 0, weekStart.Location())
 
 	// Add each event to the calendar
 	for _, event := range events {
@@ -168,6 +273,6 @@ func (w Weekday) String() string {
 	case Saturday:
 		return "SA"
 	default:
-		return "MO"
+		return "SU"
 	}
 }

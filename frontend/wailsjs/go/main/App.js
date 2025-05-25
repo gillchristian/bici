@@ -5,3 +5,7 @@
 export function ExportEvents(arg1) {
   return window['go']['main']['App']['ExportEvents'](arg1);
 }
+
+export function ImportEvents(arg1) {
+  return window['go']['main']['App']['ImportEvents'](arg1);
+}

@@ -24,6 +24,7 @@ export function Calendar({}: Props) {
   const today = useMemo(() => getWeekDay(now), [])
 
   const schedules = useAtomValue(ScheduleAtom)
+
   const events = useAtomValue(EventsAtom)
   const [_, setView] = useAtom(ViewAtom)
 

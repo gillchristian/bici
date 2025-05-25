@@ -3,3 +3,5 @@
 import {main} from '../models';
 
 export function ExportEvents(arg1:Array<main.CalendarEvent>):Promise<boolean|string>;
+
+export function ImportEvents(arg1:string):Promise<Array<main.CalendarEvent>>;

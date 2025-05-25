@@ -20,6 +20,12 @@ export function CalendarEvent({
   const start = new Date(event.time.start)
   const end = new Date(event.time.end)
 
+  if (event.id === 'Gabi <3 11') {
+    console.log({event})
+    console.log({start})
+    console.log({end})
+  }
+
   const startRow = timeToGridRow(start)
   const endRow = timeToGridRow(end)
   const span = Math.max(3, endRow - startRow)
@@ -31,7 +37,7 @@ export function CalendarEvent({
         'relative mt-px sm:flex',
         mode === 'week' && `sm:col-start-${WeekDayNum[event.weekday]}`
       )}
-      style={{gridRow: `${startRow} / span ${span}`}}
+      style={{gridRow: `${startRow} / span ${span}`, gridColumnStart: WeekDayNum[event.weekday]}}
     >
       <div
         className={clsxm(

@@ -151,6 +151,7 @@ const mkEvent =
     color: Color,
     description?: string
   ): CalendarEvent => ({
+    id: title,
     title,
     description,
     time: {

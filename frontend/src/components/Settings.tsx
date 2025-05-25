@@ -1,16 +1,19 @@
-import {useCallback, useEffect, useMemo, useState} from 'react'
-import {HomeIcon} from '@heroicons/react/24/outline'
-import {useAtom} from 'jotai'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { HomeIcon } from '@heroicons/react/24/outline'
+import { useAtom } from 'jotai'
 import * as E from 'fp-ts/Either'
-import {pipe} from 'fp-ts/function'
+import { pipe } from 'fp-ts/function'
 
-import type {WeekDict} from '@/utils/calendar'
-import {ScheduleAtom, EventsAtom} from '@/utils/calendar'
-import {WeekDay, WeekDayNum} from '@/utils/week-day'
-import {clsxm} from '@/utils/clsxm'
-import {parseSchedule} from '@/utils/calendar'
-import {getDay, previousDay} from 'date-fns'
-import {ViewAtom} from '@/utils/router'
+import { OnFileDrop } from '@wails/runtime'
+import { ImportEvents } from '@wails/go/main/App'
+
+import type { WeekDict } from '@/utils/calendar'
+import { ScheduleAtom, EventsAtom } from '@/utils/calendar'
+import { WeekDay, WeekDayNum } from '@/utils/week-day'
+import { clsxm } from '@/utils/clsxm'
+import { parseSchedule } from '@/utils/calendar'
+import { getDay, addDays, format } from 'date-fns'
+import { ViewAtom } from '@/utils/router'
 
 const WEEK = [
   WeekDay.Sunday,
@@ -22,7 +25,11 @@ const WEEK = [
   WeekDay.Saturday
 ]
 
-const getWeekDay = (now: Date, day: WeekDayNum) => (getDay(now) === 0 ? now : previousDay(now, day))
+const getWeekDay = (now: Date, day: WeekDayNum): Date => {
+  const currentDay = getDay(now)
+  const daysToAdd = (day - currentDay + 7) % 7
+  return addDays(now, daysToAdd)
+}
 
 export const Settings = () => {
   const [schedules, setSchedules] = useAtom(ScheduleAtom)
@@ -30,6 +37,11 @@ export const Settings = () => {
   const [__, setView] = useAtom(ViewAtom)
 
   const now = useMemo(() => new Date(), [])
+
+  console.log({ day: getDay(now), isSunday: getDay(now) === 0 })
+
+  console.log({ Friday: getWeekDay(now, WeekDayNum.Friday) })
+
   const week: WeekDict<Date> = useMemo(
     () => ({
       [WeekDay.Sunday]: getWeekDay(now, WeekDayNum.Sunday),
@@ -42,6 +54,8 @@ export const Settings = () => {
     }),
     []
   )
+
+  console.log(JSON.stringify({ week }, null, 2))
 
   const [errors, setErrors] = useState<WeekDict<string>>({
     [WeekDay.Sunday]: '',
@@ -61,17 +75,32 @@ export const Settings = () => {
         E.match(
           (e) => {
             console.error(e)
-            setErrors((prev) => ({...prev, [day]: e}))
+            setErrors((prev) => ({ ...prev, [day]: e }))
           },
           (es) => {
-            console.log({day, es})
-            setEvents((prev) => ({...prev, [day]: es}))
-            setErrors((prev) => ({...prev, [day]: ''}))
+            setEvents((prev) => ({ ...prev, [day]: es }))
+            setErrors((prev) => ({ ...prev, [day]: '' }))
           }
         )
       ),
     []
   )
+
+  useEffect(() => {
+    OnFileDrop((_x, _y, paths) => {
+      console.log({path: paths[0]})
+
+      ImportEvents(paths[0])
+        .then((res) => Array.isArray(res) ? res : Promise.reject(new Error('Failed to import events')))
+        .then((events) => {
+          console.log(events.map((e) => e.title))
+          console.log({events})
+        })
+        .catch((err) => {
+          console.error(err)
+        })
+    }, false)
+  }, [])
 
   // TODO: DRY !!!
   useEffect(() => {
@@ -119,38 +148,40 @@ export const Settings = () => {
         </button>
       </div>
       <div className="flex flex-col items-center">
-        <div className="space-y-12 p-12 w-full max-w-2xl">
+        <div className="space-y-12 p-12 w-full">
           <h1 className="text-xl">Schedule</h1>
 
-          {WEEK.map((day) => (
-            <div>
-              <label htmlFor={day} className="block text-sm font-medium leading-6 text-gray-900">
-                {day}
-              </label>
-              <div className="mt-2">
-                <textarea
-                  id={day}
-                  name={day}
-                  rows={15}
-                  className={clsxm(
-                    'block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm',
-                    'ring-1 ring-inset ring-gray-300 placeholder:text-gray-400',
-                    'focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6'
-                  )}
-                  value={schedules[day]}
-                  onChange={(e) => setSchedules((prev) => ({...prev, [day]: e.target.value}))}
-                />
-              </div>
-              {errors[day] && (
-                <div className="mt-2 space-y-2">
-                  <p className="text-sm text-red-600 font-bold">Failed to parse schedule</p>
-                  <pre className="text-sm text-red-600 overflow-x-auto mt-1 bg-red-50 p-2 rounded-md">
-                    {errors[day]}
-                  </pre>
+          <div className="grid grid-cols-4 gap-12">
+            {WEEK.map((day) => (
+              <div>
+                <label htmlFor={day} className="block text-sm font-medium leading-6 text-gray-900">
+                  {day} {format(week[day], 'do')}
+                </label>
+                <div className="mt-2">
+                  <textarea
+                    id={day}
+                    name={day}
+                    rows={10}
+                    className={clsxm(
+                      'block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm',
+                      'ring-1 ring-inset ring-gray-300 placeholder:text-gray-400',
+                      'focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6'
+                    )}
+                    value={schedules[day]}
+                    onChange={(e) => setSchedules((prev) => ({ ...prev, [day]: e.target.value }))}
+                  />
                 </div>
-              )}
-            </div>
-          ))}
+                {errors[day] && (
+                  <div className="mt-2 space-y-2">
+                    <p className="text-sm text-red-600 font-bold">Failed to parse schedule</p>
+                    <pre className="text-sm text-red-600 overflow-x-auto mt-1 bg-red-50 p-2 rounded-md">
+                      {errors[day]}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </>

@@ -16,6 +16,7 @@ export type Color =
   | 'gray'
 
 export type CalendarEvent = {
+  id: string
   title: string
   description?: string
   time: EventTime
@@ -25,6 +26,7 @@ export type CalendarEvent = {
 
 export const toGo = (event: CalendarEvent): main.CalendarEvent => {
   return new main.CalendarEvent({
+    id: event.id,
     title: event.title,
     description: event.description ?? '',
     time: event.time,

@@ -5,6 +5,7 @@ go 1.23
 require (
 	github.com/arran4/golang-ical v0.3.2
 	github.com/google/uuid v1.6.0
+	github.com/teambition/rrule-go v1.8.2
 	github.com/wailsapp/wails/v2 v2.10.1
 )
 
