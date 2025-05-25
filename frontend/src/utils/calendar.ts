@@ -167,6 +167,20 @@ export const parseSchedule =
   (schedule: string): E.Either<string, CalendarEvent[]> =>
     parse(events(today), schedule.trim())
 
+export const stringifySchedule = (events: CalendarEvent[]): string => {
+  return events
+    .map((event) => {
+      const start = new Date(event.time.start)
+      const end = new Date(event.time.end)
+      const timeStr = `${start.getHours()}:${start.getMinutes().toString().padStart(2, '0')} - ${end.getHours()}:${end.getMinutes().toString().padStart(2, '0')}`
+      const title = event.title
+      const description = event.description ? ` / ${event.description}` : ''
+      const color = event.color !== 'blue' ? ` #${event.color}` : ''
+      return `${timeStr} ${title}${description}${color}`
+    })
+    .join('\n')
+}
+
 export type EventTime = {
   start: string
   end: string

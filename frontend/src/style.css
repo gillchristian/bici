@@ -1,3 +1,7 @@
 @import 'tailwindcss';
 
+/* CalendarEvent.tsx */
 @source inline("{group-hover:,hover:,}{text,bg}-{blue,pink,indigo,orange,amber,emerald,teal,cyan,purple,gray}-{50,100,500,700}");
+
+/* CalendarEvent.tsx */
+@source inline("sm:col-start-{0,1,2,3,4,5,6}");

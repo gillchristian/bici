@@ -118,11 +118,17 @@ func (a *App) ImportEvents(path string) []CalendarEvent {
 		title := ""
 		if prop := event.GetProperty(ics.ComponentPropertySummary); prop != nil {
 			title = prop.Value
+			// Sanitize title
+			title = strings.ReplaceAll(title, "/", "-")
+			title = strings.ReplaceAll(title, "#", "-")
 		}
 
 		description := ""
 		if prop := event.GetProperty(ics.ComponentPropertyDescription); prop != nil {
 			description = prop.Value
+			// Sanitize description
+			description = strings.ReplaceAll(description, "/", "-")
+			description = strings.ReplaceAll(description, "#", "-")
 		}
 
 		// Check for RRULE (recurrence rule)

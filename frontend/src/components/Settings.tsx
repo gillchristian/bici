@@ -1,19 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { HomeIcon } from '@heroicons/react/24/outline'
-import { useAtom } from 'jotai'
+import {useCallback, useEffect, useMemo, useState} from 'react'
+import {HomeIcon} from '@heroicons/react/24/outline'
+import {useAtom} from 'jotai'
 import * as E from 'fp-ts/Either'
-import { pipe } from 'fp-ts/function'
+import {pipe} from 'fp-ts/function'
 
-import { OnFileDrop } from '@wails/runtime'
-import { ImportEvents } from '@wails/go/main/App'
+import {OnFileDrop} from '@wails/runtime'
+import {ImportEvents} from '@wails/go/main/App'
 
-import type { WeekDict } from '@/utils/calendar'
-import { ScheduleAtom, EventsAtom } from '@/utils/calendar'
-import { WeekDay, WeekDayNum } from '@/utils/week-day'
-import { clsxm } from '@/utils/clsxm'
-import { parseSchedule } from '@/utils/calendar'
-import { getDay, addDays, format } from 'date-fns'
-import { ViewAtom } from '@/utils/router'
+import type {WeekDict} from '@/utils/calendar'
+import {ScheduleAtom, EventsAtom} from '@/utils/calendar'
+import {WeekDay, WeekDayNum} from '@/utils/week-day'
+import {clsxm} from '@/utils/clsxm'
+import {parseSchedule, stringifySchedule} from '@/utils/calendar'
+import * as C from '@/utils/calendar-event'
+import {getDay, addDays, format} from 'date-fns'
+import {ViewAtom} from '@/utils/router'
 
 const WEEK = [
   WeekDay.Sunday,
@@ -38,10 +39,6 @@ export const Settings = () => {
 
   const now = useMemo(() => new Date(), [])
 
-  console.log({ day: getDay(now), isSunday: getDay(now) === 0 })
-
-  console.log({ Friday: getWeekDay(now, WeekDayNum.Friday) })
-
   const week: WeekDict<Date> = useMemo(
     () => ({
       [WeekDay.Sunday]: getWeekDay(now, WeekDayNum.Sunday),
@@ -55,8 +52,6 @@ export const Settings = () => {
     []
   )
 
-  console.log(JSON.stringify({ week }, null, 2))
-
   const [errors, setErrors] = useState<WeekDict<string>>({
     [WeekDay.Sunday]: '',
     [WeekDay.Monday]: '',
@@ -67,34 +62,53 @@ export const Settings = () => {
     [WeekDay.Saturday]: ''
   })
 
-  const doParse = useCallback(
-    (day: WeekDay, schedule: string) =>
-      pipe(
-        schedule,
-        parseSchedule(week[day]),
-        E.match(
-          (e) => {
-            console.error(e)
-            setErrors((prev) => ({ ...prev, [day]: e }))
-          },
-          (es) => {
-            setEvents((prev) => ({ ...prev, [day]: es }))
-            setErrors((prev) => ({ ...prev, [day]: '' }))
-          }
-        )
-      ),
-    []
-  )
+  const doParse = useCallback((day: WeekDay, schedule: string) => {
+    if (schedule.trim() === '') {
+      setEvents((prev) => ({...prev, [day]: []}))
+      setErrors((prev) => ({...prev, [day]: ''}))
+      return
+    }
+
+    pipe(
+      schedule,
+      parseSchedule(week[day]),
+      E.match(
+        (e) => {
+          console.error(e)
+          setErrors((prev) => ({...prev, [day]: e}))
+        },
+        (es) => {
+          setEvents((prev) => ({...prev, [day]: es}))
+          setErrors((prev) => ({...prev, [day]: ''}))
+        }
+      )
+    )
+  }, [])
 
   useEffect(() => {
     OnFileDrop((_x, _y, paths) => {
       console.log({path: paths[0]})
 
       ImportEvents(paths[0])
-        .then((res) => Array.isArray(res) ? res : Promise.reject(new Error('Failed to import events')))
+        .then((res) =>
+          Array.isArray(res) ? res : Promise.reject(new Error('Failed to import events'))
+        )
         .then((events) => {
-          console.log(events.map((e) => e.title))
-          console.log({events})
+          const newSchedules = WEEK.reduce((acc, day) => {
+            const dayEvents = events.filter((e) => e.weekday === WeekDayNum[day]).map(C.fromGo)
+            const schedule = [
+              ...new Set(
+                `${schedules[day]}\n${stringifySchedule(dayEvents)}`
+                  .trim()
+                  .split('\n')
+                  .filter(Boolean)
+                  .sort()
+              )
+            ].join('\n')
+            return {...acc, [day]: schedule}
+          }, {} as WeekDict<string>)
+
+          setSchedules((prev) => ({...prev, ...newSchedules}))
         })
         .catch((err) => {
           console.error(err)
@@ -168,7 +182,7 @@ export const Settings = () => {
                       'focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6'
                     )}
                     value={schedules[day]}
-                    onChange={(e) => setSchedules((prev) => ({ ...prev, [day]: e.target.value }))}
+                    onChange={(e) => setSchedules((prev) => ({...prev, [day]: e.target.value}))}
                   />
                 </div>
                 {errors[day] && (

@@ -21,3 +21,8 @@ export enum WeekDayNum {
 export const toGo = (weekDay: WeekDay): number => {
   return WeekDayNum[weekDay]
 }
+
+export const fromGo = (weekDay: number): WeekDay => {
+  const wd = WeekDayNum[weekDay] as keyof typeof WeekDayNum
+  return WeekDay[wd]
+}

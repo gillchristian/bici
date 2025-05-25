@@ -33,3 +33,14 @@ export const toGo = (event: CalendarEvent): main.CalendarEvent => {
     weekday: W.toGo(event.weekday)
   })
 }
+
+export const fromGo = (event: main.CalendarEvent): CalendarEvent => {
+  return {
+    id: event.id,
+    title: event.title,
+    description: event.description ?? '',
+    time: event.time,
+    color: 'blue',
+    weekday: W.fromGo(event.weekday)
+  }
+}
