@@ -17,6 +17,9 @@ type App struct {
 	ctx context.Context
 }
 
+// Add this constant to control all-day event exclusion
+const ExcludeAllDayEvents = true
+
 func NewApp() *App {
 	return &App{}
 }
@@ -88,15 +91,19 @@ func (a *App) ImportEvents(path string) []CalendarEvent {
 
 	// Process each event
 	for _, event := range cal.Events() {
+		// Exclude all-day events if the constant is set
+		if ExcludeAllDayEvents {
+			dtstartProp := event.GetProperty(ics.ComponentPropertyDtStart)
+			if dtstartProp != nil && dtstartProp.GetValueType() == ics.ValueDataTypeDate {
+				fmt.Printf("Skipping all-day event: %s (UID: %s)\n", event.GetProperty(ics.ComponentPropertySummary).Value, event.Id())
+				continue
+			}
+		}
+
 		// Get event start time
 		startTime, err := event.GetStartAt()
 		if err != nil {
 			fmt.Printf("Error getting event start time: %v\n", err)
-			continue
-		}
-
-		// Skip events not in current week
-		if startTime.Before(weekStart) || startTime.After(weekEnd) {
 			continue
 		}
 
@@ -106,9 +113,6 @@ func (a *App) ImportEvents(path string) []CalendarEvent {
 			fmt.Printf("Error getting event end time: %v\n", err)
 			continue
 		}
-
-		fmt.Printf("Event start time: %v\n", startTime)
-		fmt.Printf("Event end time: %v\n", endTime)
 
 		// Get event title and description
 		title := ""
@@ -121,15 +125,100 @@ func (a *App) ImportEvents(path string) []CalendarEvent {
 			description = prop.Value
 		}
 
-		fmt.Printf("Event title: %s\n", title)
-		fmt.Printf("Event description: %s\n", description)
+		// Check for RRULE (recurrence rule)
+		rruleProp := event.GetProperty("RRULE")
+		if rruleProp != nil {
+			// Parse RRULE using rrule-go, but anchor it to the event's DTSTART
+			rruleStr := rruleProp.Value
+			opt, err := rrule.StrToROption(rruleStr)
+			if err != nil {
+				fmt.Printf("Error parsing RRULE: %v\n", err)
+				continue
+			}
+			opt.Dtstart = startTime
+			rr, err := rrule.NewRRule(*opt)
+			if err != nil {
+				fmt.Printf("Error creating RRule: %v\n", err)
+				continue
+			}
 
-		// Calculate weekday (0 = Sunday, 6 = Saturday)
+			// Handle EXDATEs (dates to exclude)
+			exdates := map[time.Time]bool{}
+			exdateProps := event.GetProperties("EXDATE")
+			fmt.Printf("  EXDATEs for event '%s' (UID: %s):\n", title, event.Id())
+			for _, ex := range exdateProps {
+				if ex != nil {
+					// Try parsing as RFC3339, then as 20060102 (DATE only), then as 20060102T150405 (iCalendar local time)
+					exdate, err := time.Parse(time.RFC3339, ex.Value)
+					if err != nil {
+						exdate, err = time.Parse("20060102", ex.Value)
+					}
+					if err != nil {
+						exdate, err = time.Parse("20060102T150405", ex.Value)
+					}
+					if err == nil {
+						exdates[exdate] = true
+						fmt.Printf("    Parsed EXDATE: %v\n", exdate)
+					} else {
+						fmt.Printf("    Failed to parse EXDATE: %s\n", ex.Value)
+					}
+				}
+			}
+
+			// Get all occurrences in this week
+			occurrences := rr.Between(weekStart, weekEnd, false)
+			fmt.Printf("  Occurrences returned by rr.Between: %d\n", len(occurrences))
+			for i, occ := range occurrences {
+				fmt.Printf("    Occurrence %d: %v\n", i, occ)
+			}
+			for _, occ := range occurrences {
+				// Ensure occ is within weekStart (inclusive) and weekEnd (exclusive)
+				if occ.Before(weekStart) || !occ.Before(weekEnd) {
+					fmt.Printf("    Skipping occurrence %v: outside week range\n", occ)
+					continue
+				}
+				// Skip if in EXDATE
+				skip := false
+				for ex := range exdates {
+					if occ.Year() == ex.Year() &&
+						occ.Month() == ex.Month() &&
+						occ.Day() == ex.Day() &&
+						occ.Hour() == ex.Hour() &&
+						occ.Minute() == ex.Minute() &&
+						occ.Second() == ex.Second() {
+						skip = true
+						fmt.Printf("    Skipping occurrence %v: in EXDATE (event '%s', UID: %s)\n", occ, title, event.Id())
+						break
+					}
+				}
+				if skip {
+					continue
+				}
+				fmt.Printf("    Including occurrence %v for event '%s' (UID: %s)\n", occ, title, event.Id())
+				// Calculate end time for this occurrence
+				occEnd := occ.Add(endTime.Sub(startTime))
+				weekday := Weekday(occ.Weekday())
+				calendarEvent := CalendarEvent{
+					Id:          event.Id(),
+					Title:       title,
+					Description: description,
+					Time: EventTime{
+						Start: occ.Format(time.RFC3339),
+						End:   occEnd.Format(time.RFC3339),
+					},
+					Weekday: weekday,
+				}
+				events = append(events, calendarEvent)
+			}
+			continue // skip normal single-instance logic
+		}
+
+		// Non-recurring event: only add if in this week
+		if startTime.Before(weekStart) || startTime.After(weekEnd) {
+			continue
+		}
+
 		weekday := Weekday(startTime.Weekday())
-
-		fmt.Printf("Event weekday: %d\n", weekday)
-
-		// Create CalendarEvent
 		calendarEvent := CalendarEvent{
 			Id:          event.Id(),
 			Title:       title,
@@ -140,9 +229,6 @@ func (a *App) ImportEvents(path string) []CalendarEvent {
 			},
 			Weekday: weekday,
 		}
-
-		fmt.Printf("CalendarEvent: %+v\n", calendarEvent)
-
 		events = append(events, calendarEvent)
 	}
 
