@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	calendar "bici/calendar"
 )
@@ -19,9 +20,19 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) ImportEvents(path string) []calendar.CalendarEvent {
-	return calendar.ImportEvents(path)
+	events, err := calendar.ImportEvents(path)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+	return events
 }
 
-func (a *App) ExportEvents(events []calendar.CalendarEvent) (bool, string) {
-	return calendar.ExportEvents(events)
+func (a *App) ExportEvents(events []calendar.CalendarEvent) string {
+	err := calendar.ExportEvents(events)
+	if err != nil {
+		fmt.Println(err)
+		return err.Error()
+	}
+	return ""
 }

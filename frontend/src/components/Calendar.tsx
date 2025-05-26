@@ -48,13 +48,13 @@ export function Calendar({}: Props) {
       .flat()
       .map((event) => CE.toGo(event))
 
-    ExportEvents(events_).then((result) => {
-      console.log({result})
-      if (result === true) {
+    ExportEvents(events_).then((message) => {
+      console.log({message})
+      if (message === '') {
         console.log('Events exported successfully')
       } else {
         console.error('Failed to export events')
-        console.error(result)
+        console.error(message)
       }
     })
   }, [events])

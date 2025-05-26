@@ -1,149 +1,18 @@
-import {useCallback, useEffect, useMemo, useState} from 'react'
 import {HomeIcon} from '@heroicons/react/24/outline'
 import {useAtom} from 'jotai'
-import * as E from 'fp-ts/Either'
-import {pipe} from 'fp-ts/function'
+import {format} from 'date-fns'
 
-import {OnFileDrop} from '@wails/runtime'
-import {ImportEvents} from '@wails/go/main/App'
-
-import type {WeekDict} from '@/utils/calendar'
-import {ScheduleAtom, EventsAtom} from '@/utils/calendar'
-import {WeekDay, WeekDayNum} from '@/utils/week-day'
+import {ScheduleAtom} from '@/utils/calendar'
 import {clsxm} from '@/utils/clsxm'
-import {parseSchedule, stringifySchedule} from '@/utils/calendar'
-import * as C from '@/utils/calendar-event'
-import {getDay, addDays, format} from 'date-fns'
 import {ViewAtom} from '@/utils/router'
-
-const WEEK = [
-  WeekDay.Sunday,
-  WeekDay.Monday,
-  WeekDay.Tuesday,
-  WeekDay.Wednesday,
-  WeekDay.Thursday,
-  WeekDay.Friday,
-  WeekDay.Saturday
-]
-
-const getWeekDay = (now: Date, day: WeekDayNum): Date => {
-  const currentDay = getDay(now)
-  const daysToAdd = (day - currentDay + 7) % 7
-  return addDays(now, daysToAdd)
-}
+import {useScheduleParser} from '@/models/calendar'
+import {WEEK} from '@/models/week'
 
 export const Settings = () => {
   const [schedules, setSchedules] = useAtom(ScheduleAtom)
-  const [_, setEvents] = useAtom(EventsAtom)
   const [__, setView] = useAtom(ViewAtom)
 
-  const now = useMemo(() => new Date(), [])
-
-  const week: WeekDict<Date> = useMemo(
-    () => ({
-      [WeekDay.Sunday]: getWeekDay(now, WeekDayNum.Sunday),
-      [WeekDay.Monday]: getWeekDay(now, WeekDayNum.Monday),
-      [WeekDay.Tuesday]: getWeekDay(now, WeekDayNum.Tuesday),
-      [WeekDay.Wednesday]: getWeekDay(now, WeekDayNum.Wednesday),
-      [WeekDay.Thursday]: getWeekDay(now, WeekDayNum.Thursday),
-      [WeekDay.Friday]: getWeekDay(now, WeekDayNum.Friday),
-      [WeekDay.Saturday]: getWeekDay(now, WeekDayNum.Saturday)
-    }),
-    []
-  )
-
-  const [errors, setErrors] = useState<WeekDict<string>>({
-    [WeekDay.Sunday]: '',
-    [WeekDay.Monday]: '',
-    [WeekDay.Tuesday]: '',
-    [WeekDay.Wednesday]: '',
-    [WeekDay.Thursday]: '',
-    [WeekDay.Friday]: '',
-    [WeekDay.Saturday]: ''
-  })
-
-  const doParse = useCallback((day: WeekDay, schedule: string) => {
-    if (schedule.trim() === '') {
-      setEvents((prev) => ({...prev, [day]: []}))
-      setErrors((prev) => ({...prev, [day]: ''}))
-      return
-    }
-
-    pipe(
-      schedule,
-      parseSchedule(week[day]),
-      E.match(
-        (e) => {
-          console.error(e)
-          setErrors((prev) => ({...prev, [day]: e}))
-        },
-        (es) => {
-          setEvents((prev) => ({...prev, [day]: es}))
-          setErrors((prev) => ({...prev, [day]: ''}))
-        }
-      )
-    )
-  }, [])
-
-  useEffect(() => {
-    OnFileDrop((_x, _y, paths) => {
-      console.log({path: paths[0]})
-
-      ImportEvents(paths[0])
-        .then((res) =>
-          Array.isArray(res) ? res : Promise.reject(new Error('Failed to import events'))
-        )
-        .then((events) => {
-          const newSchedules = WEEK.reduce((acc, day) => {
-            const dayEvents = events.filter((e) => e.weekday === WeekDayNum[day]).map(C.fromGo)
-            const schedule = [
-              ...new Set(
-                `${schedules[day]}\n${stringifySchedule(dayEvents)}`
-                  .trim()
-                  .split('\n')
-                  .filter(Boolean)
-                  .sort()
-              )
-            ].join('\n')
-            return {...acc, [day]: schedule}
-          }, {} as WeekDict<string>)
-
-          setSchedules((prev) => ({...prev, ...newSchedules}))
-        })
-        .catch((err) => {
-          console.error(err)
-        })
-    }, false)
-  }, [])
-
-  // TODO: DRY !!!
-  useEffect(() => {
-    doParse(WeekDay.Sunday, schedules.Sunday)
-  }, [schedules.Sunday])
-
-  useEffect(() => {
-    doParse(WeekDay.Monday, schedules.Monday)
-  }, [schedules.Monday])
-
-  useEffect(() => {
-    doParse(WeekDay.Tuesday, schedules.Tuesday)
-  }, [schedules.Tuesday])
-
-  useEffect(() => {
-    doParse(WeekDay.Wednesday, schedules.Wednesday)
-  }, [schedules.Wednesday])
-
-  useEffect(() => {
-    doParse(WeekDay.Thursday, schedules.Thursday)
-  }, [schedules.Thursday])
-
-  useEffect(() => {
-    doParse(WeekDay.Friday, schedules.Friday)
-  }, [schedules.Friday])
-
-  useEffect(() => {
-    doParse(WeekDay.Saturday, schedules.Saturday)
-  }, [schedules.Saturday])
+  const {errors, week} = useScheduleParser()
 
   return (
     <>
