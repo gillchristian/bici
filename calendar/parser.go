@@ -9,13 +9,22 @@ import (
 	rrule "github.com/teambition/rrule-go"
 )
 
+// Helper to sanitize strings for schedule
+func sanitizeString(s string) string {
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.ReplaceAll(s, "\r", " ")
+	s = strings.ReplaceAll(s, "/", "-")
+	s = strings.ReplaceAll(s, "#", "-")
+	s = strings.TrimSpace(s)
+	return s
+}
+
 // parseEvent parses a single calendar event and returns a CalendarEvent
 func parseEvent(event *ics.VEvent, weekStart, weekEnd time.Time) ([]CalendarEvent, error) {
 	// Exclude all-day events if the constant is set
 	if ExcludeAllDayEvents {
 		dtstartProp := event.GetProperty(ics.ComponentPropertyDtStart)
 		if dtstartProp != nil && dtstartProp.GetValueType() == ics.ValueDataTypeDate {
-			fmt.Printf("Skipping all-day event: %s (UID: %s)\n", event.GetProperty(ics.ComponentPropertySummary).Value, event.Id())
 			return nil, nil
 		}
 	}
@@ -26,27 +35,20 @@ func parseEvent(event *ics.VEvent, weekStart, weekEnd time.Time) ([]CalendarEven
 		return nil, fmt.Errorf("error getting event start time: %w", err)
 	}
 
-	// Get event end time
+	// Get event end time, default to 1 hour after start if not specified
 	endTime, err := event.GetEndAt()
 	if err != nil {
-		return nil, fmt.Errorf("error getting event end time: %w", err)
+		endTime = startTime.Add(time.Hour)
 	}
 
-	// Get event title and description
+	// Get event title and description, sanitize them
 	title := ""
 	if prop := event.GetProperty(ics.ComponentPropertySummary); prop != nil {
-		title = prop.Value
-		// Sanitize title
-		title = strings.ReplaceAll(title, "/", "-")
-		title = strings.ReplaceAll(title, "#", "-")
+		title = sanitizeString(prop.Value)
 	}
-
 	description := ""
 	if prop := event.GetProperty(ics.ComponentPropertyDescription); prop != nil {
-		description = prop.Value
-		// Sanitize description
-		description = strings.ReplaceAll(description, "/", "-")
-		description = strings.ReplaceAll(description, "#", "-")
+		description = sanitizeString(prop.Value)
 	}
 
 	// Check for RRULE (recurrence rule)
@@ -56,7 +58,7 @@ func parseEvent(event *ics.VEvent, weekStart, weekEnd time.Time) ([]CalendarEven
 	}
 
 	// Non-recurring event: only add if in this week
-	if startTime.Before(weekStart) || startTime.After(weekEnd) {
+	if startTime.Before(weekStart) || !startTime.Before(weekEnd) {
 		return nil, nil
 	}
 
@@ -73,6 +75,11 @@ func parseEvent(event *ics.VEvent, weekStart, weekEnd time.Time) ([]CalendarEven
 		Weekday: weekday,
 		Source:  SourceExternal,
 	}
+
+	dtstart, _ := event.GetStartAt()
+	dtend, _ := event.GetEndAt()
+	fmt.Printf("[ImportEvents] Processing event: '%s' | DTSTART: %v | DTEND: %v\n", title, dtstart, dtend)
+
 	return []CalendarEvent{calendarEvent}, nil
 }
 
@@ -84,7 +91,18 @@ func parseRecurringEvent(event *ics.VEvent, rruleProp *ics.IANAProperty, startTi
 	if err != nil {
 		return nil, fmt.Errorf("error parsing RRULE: %w", err)
 	}
+
+	// Use the timezone from startTime
+	loc := startTime.Location()
+	if loc != time.UTC {
+		// Convert weekStart and weekEnd to the event's timezone
+		weekStart = weekStart.In(loc)
+		weekEnd = weekEnd.In(loc)
+	}
+
+	// Set the start time and don't limit the until date
 	opt.Dtstart = startTime
+	opt.Until = time.Time{} // Don't limit the until date
 	rr, err := rrule.NewRRule(*opt)
 	if err != nil {
 		return nil, fmt.Errorf("error creating RRule: %w", err)
@@ -93,10 +111,8 @@ func parseRecurringEvent(event *ics.VEvent, rruleProp *ics.IANAProperty, startTi
 	// Handle EXDATEs (dates to exclude)
 	exdates := map[time.Time]bool{}
 	exdateProps := event.GetProperties("EXDATE")
-	fmt.Printf("  EXDATEs for event '%s' (UID: %s):\n", title, event.Id())
 	for _, ex := range exdateProps {
 		if ex != nil {
-			// Try parsing as RFC3339, then as 20060102 (DATE only), then as 20060102T150405 (iCalendar local time)
 			exdate, err := time.Parse(time.RFC3339, ex.Value)
 			if err != nil {
 				exdate, err = time.Parse("20060102", ex.Value)
@@ -106,28 +122,27 @@ func parseRecurringEvent(event *ics.VEvent, rruleProp *ics.IANAProperty, startTi
 			}
 			if err == nil {
 				exdates[exdate] = true
-				fmt.Printf("    Parsed EXDATE: %v\n", exdate)
-			} else {
-				fmt.Printf("    Failed to parse EXDATE: %s\n", ex.Value)
 			}
 		}
 	}
 
 	// Get all occurrences in this week
-	occurrences := rr.Between(weekStart, weekEnd, false)
-	fmt.Printf("  Occurrences returned by rr.Between: %d\n", len(occurrences))
-	for i, occ := range occurrences {
-		fmt.Printf("    Occurrence %d: %v\n", i, occ)
-	}
+	occurrences := rr.Between(weekStart, weekEnd, true)
+	fmt.Printf("[parseRecurringEvent] Found %d occurrences for event '%s' between %v and %v (in timezone %v)\n",
+		len(occurrences), title, weekStart.Format("2006-01-02 15:04:05 -0700"),
+		weekEnd.Format("2006-01-02 15:04:05 -0700"), loc)
 
+	// Use a map to deduplicate events based on their start time and title
+	dedupMap := make(map[string]CalendarEvent)
 	var events []CalendarEvent
+
 	for _, occ := range occurrences {
-		// Ensure occ is within weekStart (inclusive) and weekEnd (exclusive)
+		// Skip if the occurrence is outside our week window
 		if occ.Before(weekStart) || !occ.Before(weekEnd) {
-			fmt.Printf("    Skipping occurrence %v: outside week range\n", occ)
 			continue
 		}
-		// Skip if in EXDATE
+
+		// Skip if this occurrence is in the exdates
 		skip := false
 		for ex := range exdates {
 			if occ.Year() == ex.Year() &&
@@ -137,15 +152,14 @@ func parseRecurringEvent(event *ics.VEvent, rruleProp *ics.IANAProperty, startTi
 				occ.Minute() == ex.Minute() &&
 				occ.Second() == ex.Second() {
 				skip = true
-				fmt.Printf("    Skipping occurrence %v: in EXDATE (event '%s', UID: %s)\n", occ, title, event.Id())
 				break
 			}
 		}
 		if skip {
 			continue
 		}
-		fmt.Printf("    Including occurrence %v for event '%s' (UID: %s)\n", occ, title, event.Id())
-		// Calculate end time for this occurrence
+
+		// Calculate the end time for this occurrence
 		occEnd := occ.Add(endTime.Sub(startTime))
 		weekday := Weekday(occ.Weekday())
 		calendarEvent := CalendarEvent{
@@ -160,7 +174,20 @@ func parseRecurringEvent(event *ics.VEvent, rruleProp *ics.IANAProperty, startTi
 			Weekday: weekday,
 			Source:  SourceExternal,
 		}
-		events = append(events, calendarEvent)
+
+		// Create a unique key for this event based on its start time and title
+		key := fmt.Sprintf("%s_%s", title, occ.Format(time.RFC3339))
+		if _, exists := dedupMap[key]; !exists {
+			dedupMap[key] = calendarEvent
+			fmt.Printf("[parseRecurringEvent] Included event: '%s' | Start: %s | End: %s | Timezone: %v\n",
+				title, occ.Format(time.RFC3339), occEnd.Format(time.RFC3339), occ.Location())
+		}
 	}
+
+	// Convert the map values to a slice
+	for _, event := range dedupMap {
+		events = append(events, event)
+	}
+
 	return events, nil
 }

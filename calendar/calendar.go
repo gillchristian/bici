@@ -30,10 +30,14 @@ func ImportEvents(path string) ([]CalendarEvent, error) {
 	// Get the current week's start and end
 	now := time.Now()
 	weekStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	for weekStart.Weekday() != time.Monday {
+	for weekStart.Weekday() != time.Sunday {
 		weekStart = weekStart.AddDate(0, 0, -1)
 	}
 	weekEnd := weekStart.AddDate(0, 0, 7)
+
+	fmt.Printf("[ImportEvents] Now: %v\n", now)
+	fmt.Printf("[ImportEvents] weekStart (Sunday): %v\n", weekStart)
+	fmt.Printf("[ImportEvents] weekEnd (next Sunday): %v\n", weekEnd)
 
 	var events []CalendarEvent
 	for _, event := range cal.Events() {
@@ -44,6 +48,7 @@ func ImportEvents(path string) ([]CalendarEvent, error) {
 		events = append(events, parsedEvents...)
 	}
 
+	fmt.Printf("[ImportEvents] Total events included: %d\n", len(events))
 	return events, nil
 }
 
