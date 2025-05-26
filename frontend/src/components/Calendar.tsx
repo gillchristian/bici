@@ -1,14 +1,15 @@
 import {useEffect, useMemo, useRef, useCallback} from 'react'
 import {CogIcon, ArrowDownTrayIcon} from '@heroicons/react/24/outline'
 import {format} from 'date-fns'
-import {useAtom, useAtomValue} from 'jotai'
+import {useAtom} from 'jotai'
 
 import {ExportEvents} from '@wails/go/main/App'
 
 import {clsxm} from '@/utils/clsxm'
-import {mkWeek, EventsAtom} from '@/utils/calendar'
+import {mkWeek} from '@/utils/calendar'
 import {ViewAtom} from '@/utils/router'
 import * as CE from '@/utils/calendar-event'
+import {useScheduleParser} from '@/models/calendar'
 
 import {Week} from './Week'
 
@@ -22,8 +23,9 @@ export function Calendar({}: Props) {
   const now = useMemo(() => new Date(), [])
   const week = useMemo(() => mkWeek(now), [])
 
-  const events = useAtomValue(EventsAtom)
   const [_, setView] = useAtom(ViewAtom)
+
+  const {events} = useScheduleParser()
 
   useEffect(() => {
     if (!container.current || !containerNav.current || !containerOffset.current) {

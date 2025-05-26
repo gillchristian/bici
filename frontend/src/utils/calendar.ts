@@ -1,4 +1,3 @@
-import {atomWithStorage} from 'jotai/utils'
 import {
   endOfMonth,
   format,
@@ -193,23 +192,3 @@ export const getWeekDay = (date: Date): WeekDay =>
 export type WeekDict<T> = {
   [key in WeekDay]: T
 }
-
-export const ScheduleAtom = atomWithStorage<WeekDict<string>>('calendar/schedule', {
-  [WeekDay.Sunday]: '',
-  [WeekDay.Monday]: '',
-  [WeekDay.Tuesday]: '',
-  [WeekDay.Wednesday]: '',
-  [WeekDay.Thursday]: '',
-  [WeekDay.Friday]: '',
-  [WeekDay.Saturday]: ''
-})
-
-export const EventsAtom = atomWithStorage<WeekDict<CalendarEvent[]>>('calendar/events', {
-  [WeekDay.Sunday]: [],
-  [WeekDay.Monday]: [],
-  [WeekDay.Tuesday]: [],
-  [WeekDay.Wednesday]: [],
-  [WeekDay.Thursday]: [],
-  [WeekDay.Friday]: [],
-  [WeekDay.Saturday]: []
-})

@@ -2,17 +2,15 @@ import {HomeIcon} from '@heroicons/react/24/outline'
 import {useAtom} from 'jotai'
 import {format, isToday} from 'date-fns'
 
-import {ScheduleAtom} from '@/utils/calendar'
 import {clsxm} from '@/utils/clsxm'
 import {ViewAtom} from '@/utils/router'
 import {useScheduleParser} from '@/models/calendar'
 import {WEEK} from '@/models/week'
 
 export const Settings = () => {
-  const [schedules, setSchedules] = useAtom(ScheduleAtom)
-  const [__, setView] = useAtom(ViewAtom)
+  const [_, setView] = useAtom(ViewAtom)
 
-  const {errors, week} = useScheduleParser()
+  const {errors, week, schedules, setSchedule} = useScheduleParser()
 
   return (
     <>
@@ -58,7 +56,7 @@ export const Settings = () => {
                         'focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6'
                       )}
                       value={schedules[day]}
-                      onChange={(e) => setSchedules((prev) => ({...prev, [day]: e.target.value}))}
+                      onChange={(e) => setSchedule(day, e.target.value)}
                     />
                   </div>
                   {errors[day] && (

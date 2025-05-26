@@ -1,3 +1,4 @@
+import {atomWithStorage} from 'jotai/utils'
 import {useEffect, useCallback, useState, useMemo} from 'react'
 import {useAtom} from 'jotai'
 import {OnFileDrop} from '@wails/runtime'
@@ -6,7 +7,6 @@ import * as E from 'fp-ts/Either'
 import {pipe} from 'fp-ts/function'
 import {format} from 'date-fns'
 
-import {ScheduleAtom, EventsAtom} from '@/utils/calendar'
 import type {WeekDict} from '@/utils/calendar'
 import {WeekDay, WeekDayNum} from '@/utils/week-day'
 import {parseSchedule, stringifySchedule} from '@/utils/calendar'
@@ -14,15 +14,35 @@ import * as C from '@/utils/calendar-event'
 import {WEEK} from '@/models/week'
 import {mkWeek} from '@/utils/calendar'
 
-export const useScheduleWatcher = (callback: (day: WeekDay, schedule: string) => void) => {
-  const [schedules, _setSchedules] = useAtom(ScheduleAtom)
+export const ScheduleAtom = atomWithStorage<WeekDict<string>>('calendar/schedule', {
+  [WeekDay.Sunday]: '',
+  [WeekDay.Monday]: '',
+  [WeekDay.Tuesday]: '',
+  [WeekDay.Wednesday]: '',
+  [WeekDay.Thursday]: '',
+  [WeekDay.Friday]: '',
+  [WeekDay.Saturday]: ''
+})
 
-  useEffect(() => {
-    WEEK.forEach((day) => {
-      callback(day, schedules[day])
-    })
-  }, [schedules, callback])
-}
+export const EventsAtom = atomWithStorage<WeekDict<C.CalendarEvent[]>>('calendar/events', {
+  [WeekDay.Sunday]: [],
+  [WeekDay.Monday]: [],
+  [WeekDay.Tuesday]: [],
+  [WeekDay.Wednesday]: [],
+  [WeekDay.Thursday]: [],
+  [WeekDay.Friday]: [],
+  [WeekDay.Saturday]: []
+})
+
+export const ErrorsAtom = atomWithStorage<WeekDict<string>>('calendar/errors', {
+  [WeekDay.Sunday]: '',
+  [WeekDay.Monday]: '',
+  [WeekDay.Tuesday]: '',
+  [WeekDay.Wednesday]: '',
+  [WeekDay.Thursday]: '',
+  [WeekDay.Friday]: '',
+  [WeekDay.Saturday]: ''
+})
 
 export const useFileDropHandler = () => {
   const [schedules, setSchedules] = useAtom(ScheduleAtom)
@@ -70,16 +90,9 @@ export const useFileDropHandler = () => {
 }
 
 export const useScheduleParser = () => {
-  const [_, setEvents] = useAtom(EventsAtom)
-  const [errors, setErrors] = useState<WeekDict<string>>({
-    [WeekDay.Sunday]: '',
-    [WeekDay.Monday]: '',
-    [WeekDay.Tuesday]: '',
-    [WeekDay.Wednesday]: '',
-    [WeekDay.Thursday]: '',
-    [WeekDay.Friday]: '',
-    [WeekDay.Saturday]: ''
-  })
+  const [events, setEvents] = useAtom(EventsAtom)
+  const [errors, setErrors] = useAtom(ErrorsAtom)
+  const [schedules, setSchedules] = useAtom(ScheduleAtom)
 
   const now = useMemo(() => new Date(), [])
 
@@ -120,7 +133,19 @@ export const useScheduleParser = () => {
     [week]
   )
 
-  useScheduleWatcher(doParse)
+  useEffect(() => {
+    console.log('schedules', schedules)
+    WEEK.forEach((day) => {
+      doParse(day, schedules[day])
+    })
+  }, [schedules, doParse])
 
-  return {errors, week}
+  const setSchedule = useCallback(
+    (day: WeekDay, schedule: string) => {
+      setSchedules((prev) => ({...prev, [day]: schedule}))
+    },
+    [setSchedules]
+  )
+
+  return {week, events, schedules, errors, setSchedule}
 }
