@@ -1,4 +1,4 @@
-export namespace main {
+export namespace calendar {
 	
 	export class EventTime {
 	    start: string;
@@ -20,6 +20,8 @@ export namespace main {
 	    description: string;
 	    time: EventTime;
 	    weekday: number;
+	    color: string;
+	    source: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new CalendarEvent(source);
@@ -32,6 +34,8 @@ export namespace main {
 	        this.description = source["description"];
 	        this.time = this.convertValues(source["time"], EventTime);
 	        this.weekday = source["weekday"];
+	        this.color = source["color"];
+	        this.source = source["source"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

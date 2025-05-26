@@ -159,7 +159,8 @@ const mkEvent =
       end: new Date(day.getFullYear(), day.getMonth(), day.getDate(), th, tm).toISOString()
     },
     color,
-    weekday: getWeekDay(day)
+    weekday: getWeekDay(day),
+    source: 'internal'
   })
 
 export const parseSchedule =

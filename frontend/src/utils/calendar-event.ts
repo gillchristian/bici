@@ -1,4 +1,4 @@
-import {main} from '@wails/go/models'
+import {calendar} from '@wails/go/models'
 
 import {EventTime} from './event-time'
 import * as W from './week-day'
@@ -15,6 +15,8 @@ export type Color =
   | 'purple'
   | 'gray'
 
+type Source = 'external' | 'internal'
+
 export type CalendarEvent = {
   id: string
   title: string
@@ -22,25 +24,29 @@ export type CalendarEvent = {
   time: EventTime
   color: Color
   weekday: W.WeekDay
+  source: Source
 }
 
-export const toGo = (event: CalendarEvent): main.CalendarEvent => {
-  return new main.CalendarEvent({
+export const toGo = (event: CalendarEvent): calendar.CalendarEvent => {
+  return new calendar.CalendarEvent({
     id: event.id,
     title: event.title,
     description: event.description ?? '',
     time: event.time,
-    weekday: W.toGo(event.weekday)
+    weekday: W.toGo(event.weekday),
+    color: event.color,
+    source: event.source
   })
 }
 
-export const fromGo = (event: main.CalendarEvent): CalendarEvent => {
+export const fromGo = (event: calendar.CalendarEvent): CalendarEvent => {
   return {
     id: event.id,
     title: event.title,
     description: event.description ?? '',
     time: event.time,
-    color: 'blue',
-    weekday: W.fromGo(event.weekday)
+    color: event.color as Color,
+    weekday: W.fromGo(event.weekday),
+    source: event.source as Source
   }
 }
