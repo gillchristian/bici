@@ -6,7 +6,7 @@ import {useAtom, useAtomValue} from 'jotai'
 import {ExportEvents} from '@wails/go/main/App'
 
 import {clsxm} from '@/utils/clsxm'
-import {mkWeek, EventsAtom, ScheduleAtom, getWeekDay} from '@/utils/calendar'
+import {mkWeek, EventsAtom} from '@/utils/calendar'
 import {ViewAtom} from '@/utils/router'
 import * as CE from '@/utils/calendar-event'
 
@@ -21,9 +21,6 @@ export function Calendar({}: Props) {
 
   const now = useMemo(() => new Date(), [])
   const week = useMemo(() => mkWeek(now), [])
-  const today = useMemo(() => getWeekDay(now), [])
-
-  const schedules = useAtomValue(ScheduleAtom)
 
   const events = useAtomValue(EventsAtom)
   const [_, setView] = useAtom(ViewAtom)

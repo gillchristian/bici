@@ -4,7 +4,7 @@ import {OnFileDrop} from '@wails/runtime'
 import {ImportEvents} from '@wails/go/main/App'
 import * as E from 'fp-ts/Either'
 import {pipe} from 'fp-ts/function'
-import {getDay, addDays} from 'date-fns'
+import {format} from 'date-fns'
 
 import {ScheduleAtom, EventsAtom} from '@/utils/calendar'
 import type {WeekDict} from '@/utils/calendar'
@@ -12,12 +12,7 @@ import {WeekDay, WeekDayNum} from '@/utils/week-day'
 import {parseSchedule, stringifySchedule} from '@/utils/calendar'
 import * as C from '@/utils/calendar-event'
 import {WEEK} from '@/models/week'
-
-const getWeekDay = (now: Date, day: WeekDayNum): Date => {
-  const currentDay = getDay(now)
-  const daysToAdd = (day - currentDay + 7) % 7
-  return addDays(now, daysToAdd)
-}
+import {mkWeek} from '@/utils/calendar'
 
 export const useScheduleWatcher = (callback: (day: WeekDay, schedule: string) => void) => {
   const [schedules, _setSchedules] = useAtom(ScheduleAtom)
@@ -34,12 +29,20 @@ export const useFileDropHandler = () => {
 
   useEffect(() => {
     OnFileDrop((_x, _y, paths) => {
+      if (!paths || paths.length === 0) {
+        console.error('No file path provided')
+        return
+      }
+
       console.log({path: paths[0]})
 
       ImportEvents(paths[0])
-        .then((res) =>
-          Array.isArray(res) ? res : Promise.reject(new Error('Failed to import events'))
-        )
+        .then((res) => {
+          if (!Array.isArray(res)) {
+            throw new Error('Failed to import events: invalid response')
+          }
+          return res
+        })
         .then((events) => {
           const newSchedules = WEEK.reduce((acc, day) => {
             const dayEvents = events.filter((e) => e.weekday === WeekDayNum[day]).map(C.fromGo)
@@ -55,13 +58,15 @@ export const useFileDropHandler = () => {
             return {...acc, [day]: schedule}
           }, {} as WeekDict<string>)
 
+          console.log({newSchedules})
+
           setSchedules((prev) => ({...prev, ...newSchedules}))
         })
         .catch((err) => {
-          console.error(err)
+          console.error('Error importing events:', err)
         })
     }, false)
-  }, [])
+  }, [schedules])
 }
 
 export const useScheduleParser = () => {
@@ -78,17 +83,15 @@ export const useScheduleParser = () => {
 
   const now = useMemo(() => new Date(), [])
 
+  const weekArr = useMemo(() => mkWeek(now), [now])
   const week: WeekDict<Date> = useMemo(
-    () => ({
-      [WeekDay.Sunday]: getWeekDay(now, WeekDayNum.Sunday),
-      [WeekDay.Monday]: getWeekDay(now, WeekDayNum.Monday),
-      [WeekDay.Tuesday]: getWeekDay(now, WeekDayNum.Tuesday),
-      [WeekDay.Wednesday]: getWeekDay(now, WeekDayNum.Wednesday),
-      [WeekDay.Thursday]: getWeekDay(now, WeekDayNum.Thursday),
-      [WeekDay.Friday]: getWeekDay(now, WeekDayNum.Friday),
-      [WeekDay.Saturday]: getWeekDay(now, WeekDayNum.Saturday)
-    }),
-    []
+    () =>
+      weekArr.reduce((acc, day) => {
+        const weekDay = WeekDay[format(day.date, 'EEEE') as keyof typeof WeekDay]
+        acc[weekDay] = day.date
+        return acc
+      }, {} as WeekDict<Date>),
+    [weekArr]
   )
 
   const doParse = useCallback(

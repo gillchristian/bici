@@ -24,7 +24,7 @@ import {CalendarEvent, Color} from './calendar-event'
 import {WeekDay} from './week-day'
 
 export type Day = {
-  date: string
+  date: Date
   isCurrentMonth: boolean
   isToday: boolean
   isSelected: boolean
@@ -42,7 +42,7 @@ export const mkMonth = (now: Date): Day[] => {
 
   for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
     days.push({
-      date: format(dt, 'yyyy-MM-dd'),
+      date: new Date(dt),
       isCurrentMonth: isSameMonth(dt, now),
       isToday: isToday(dt),
       isSelected: isSameDay(dt, now)
@@ -60,7 +60,7 @@ export const mkWeek = (now: Date): Day[] => {
 
   for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
     days.push({
-      date: format(dt, 'yyyy-MM-dd'),
+      date: new Date(dt),
       isCurrentMonth: isSameMonth(dt, now),
       isToday: isToday(dt),
       isSelected: isSameDay(dt, now)
